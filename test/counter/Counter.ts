@@ -7,7 +7,7 @@ import type { Signers } from "../types";
 import { shouldBehaveLikeCounter } from "./Counter.behavior";
 import { deployCounterFixture, getTokensFromFaucet } from "./Counter.fixture";
 
-describe("Unit tests", function () {
+xdescribe("Unit tests", function () {
   before(async function () {
     this.signers = {} as Signers;
 

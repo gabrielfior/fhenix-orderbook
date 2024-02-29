@@ -1,9 +1,10 @@
 import "@nomicfoundation/hardhat-toolbox";
 import { config as dotenvConfig } from "dotenv";
-import "hardhat-deploy";
+//import "hardhat-deploy";
 import type { HardhatUserConfig } from "hardhat/config";
 import type { NetworkUserConfig } from "hardhat/types";
 import { resolve } from "path";
+
 
 import "./tasks/accounts";
 import "./tasks/add";
@@ -103,13 +104,6 @@ const config: HardhatUserConfig = {
         mnemonic,
       },
       chainId: chainIds.hardhat,
-    },
-    ganache: {
-      accounts: {
-        mnemonic,
-      },
-      chainId: chainIds.ganache,
-      url: "http://localhost:8545",
     },
     arbitrum: getChainConfig("arbitrum-mainnet"),
     avalanche: getChainConfig("avalanche"),

@@ -10,6 +10,7 @@ contract Counter {
     function add(bytes calldata encryptedValue) public {
         euint32 value = TFHE.asEuint32(encryptedValue);
         counter = TFHE.add(counter, value);
+        counter = TFHE.add(counter, 1);
     }
 
     function getCounter(bytes32 publicKey) public view returns (bytes memory) {
