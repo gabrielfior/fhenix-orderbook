@@ -1,90 +1,102 @@
 // SPDX-License-Identifier: BSD-3-Clause-Clear
 
-pragma solidity >=0.8.13 <0.9.0;
+pragma solidity ^0.8.20;
 
-import "fhevm/lib/TFHE.sol";
+import { euint32,inEuint16,euint8, ebool, FHE } from "@fhenixprotocol/contracts/FHE.sol";
 
 import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SafeERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { ERC20PresetMinterPauser } from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
-import { IERC20 } from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import { ReentrancyGuard } from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import { ReentrancyGuard } from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import { IOrderbook } from "./interfaces/IOrderbook.sol";
+import {FHERC20} from "./FHERC20.sol";
 
 contract Orderbook is IOrderbook, ReentrancyGuard {
-    using SafeERC20 for IERC20;
+    
+    FHERC20 public tradeToken;
+    FHERC20 public baseToken;
 
-    IERC20 public tradeToken;
-    IERC20 public baseToken;
+    // Buy
+    mapping(uint32 => mapping(uint32 => Order)) public buyOrdersInStep;
+    mapping(uint32 => Step) public buySteps;
+    mapping(uint32 => euint32) public buyOrdersInStepCounter;
+    uint32 public maxBuyPrice;
 
-    mapping(uint256 => mapping(uint8 => Order)) public buyOrdersInStep;
-    mapping(uint256 => Step) public buySteps;
-    mapping(uint256 => uint8) public buyOrdersInStepCounter;
-    uint256 public maxBuyPrice;
-
-    mapping(uint256 => mapping(uint8 => Order)) public sellOrdersInStep;
-    mapping(uint256 => Step) public sellSteps;
-    mapping(uint256 => uint8) public sellOrdersInStepCounter;
-    uint256 public minSellPrice;
+    // Sell
+    mapping(uint32 => mapping(uint32 => Order)) public sellOrdersInStep;
+    mapping(uint32 => Step) public sellSteps;
+    mapping(uint32 => euint32) public sellOrdersInStepCounter;
+    uint32 public minSellPrice;
 
     /**
      * @notice Constructor
      */
     constructor(address _tradeToken, address _baseToken) public {
-        tradeToken = IERC20(_tradeToken);
-        baseToken = IERC20(_baseToken);
+        tradeToken = FHERC20(_tradeToken);
+        baseToken = FHERC20(_baseToken);
     }
-
 
     /**
      * @notice Place buy order.
      */
     function placeBuyOrder (
-        uint256 price,
-        uint256 amountOfBaseToken
-    ) external override nonReentrant {
-        baseToken.safeTransferFrom(msg.sender, address(this), amountOfBaseToken);
-        emit PlaceBuyOrder(msg.sender, price, amountOfBaseToken);
+        euint32 price,
+        euint32 amountOfBaseToken
+    ) external nonReentrant {
+        baseToken.transferFromEncrypted(msg.sender, address(this), amountOfBaseToken);
+        // ToDo - Emit events?
+        //emit PlaceBuyOrder(msg.sender, price, amountOfBaseToken);
 
         /**
          * @notice if has order in sell book, and price >= min sell price
          */
-        uint256 sellPricePointer = minSellPrice;
-        uint256 amountReflect = amountOfBaseToken;
-        if (minSellPrice > 0 && price >= minSellPrice) {
-            while (amountReflect > 0 && sellPricePointer <= price && sellPricePointer != 0) {
-                uint8 i = 1;
-                uint256 higherPrice = sellSteps[sellPricePointer].higherPrice;
-                while (i <= sellOrdersInStepCounter[sellPricePointer] && amountReflect > 0) {
-                    if (amountReflect >= sellOrdersInStep[sellPricePointer][i].amount) {
+        uint32 sellPricePointer = minSellPrice;
+        uint32 amountReflect = amountOfBaseToken.decrypt();
+        // ToDo - Check if not a problem to leak data here
+        uint32 priceExposed = price.decrypt();
+
+    //     // euin16 first = functionA();
+    //     // euint16 second = functionB();
+    //     // euint16 res = FHE.select(ebool, first, second);
+
+        if (minSellPrice > 0 && priceExposed >= minSellPrice) {
+            while (amountReflect > 0 && sellPricePointer <= priceExposed && sellPricePointer != 0) {
+                euint32 i = FHE.asEuint32(1);
+                euint32 higherPrice = sellSteps[sellPricePointer].higherPrice;
+                bool iSmallerThanSellPrice = FHE.lte(i, sellOrdersInStepCounter[sellPricePointer]).decrypt();
+                while (iSmallerThanSellPrice && (amountReflect > 0)) {
+                    uint32 decryptedSellOrderAmount = FHE.decrypt(sellOrdersInStep[sellPricePointer][i.decrypt()].amount); 
+                    if (amountReflect >= decryptedSellOrderAmount) {
                         //if the last order has been matched, delete the step
-                        if (i == sellOrdersInStepCounter[sellPricePointer]) {
-                            if (higherPrice > 0)
-                            sellSteps[higherPrice].lowerPrice = 0;
+                        // ToDo - Use FHE.select
+                        if (i.decrypt() == sellOrdersInStepCounter[sellPricePointer].decrypt()) {
+                            // ToDo - Use FHE.select
+                            if (higherPrice.decrypt() > 0)
+                            sellSteps[higherPrice.decrypt()].lowerPrice = FHE.asEuint32(0);
                             delete sellSteps[sellPricePointer];
-                            minSellPrice = higherPrice;
+                            minSellPrice = higherPrice.decrypt();
                         }
 
-                        amountReflect = amountReflect - sellOrdersInStep[sellPricePointer][i].amount;
+                        amountReflect = amountReflect - sellOrdersInStep[sellPricePointer][i.decrypt()].amount.decrypt();
 
                         // delete order from storage
-                        delete sellOrdersInStep[sellPricePointer][i];
-                        sellOrdersInStepCounter[sellPricePointer] -= 1;
+                        delete sellOrdersInStep[sellPricePointer][i.decrypt()];
+                        sellOrdersInStepCounter[sellPricePointer] = FHE.sub(sellOrdersInStepCounter[sellPricePointer],FHE.asEuint32(1));
                     } else {
-                        sellSteps[sellPricePointer].amount = sellSteps[sellPricePointer].amount - amountReflect;
-                        sellOrdersInStep[sellPricePointer][i].amount = sellOrdersInStep[sellPricePointer][i].amount - amountReflect;
+                        euint32 amountReflectEuint = FHE.asEuint32(amountReflect);
+                        sellSteps[sellPricePointer].amount = FHE.sub(sellSteps[sellPricePointer].amount, amountReflectEuint);
+                        sellOrdersInStep[sellPricePointer][i.decrypt()].amount = FHE.sub(sellOrdersInStep[sellPricePointer][i.decrypt()].amount, amountReflectEuint);
                         amountReflect = 0;
                     }
-                    i += 1;
+                    i = i + FHE.asEuint32(1);
                 }
-                sellPricePointer = higherPrice;
+                sellPricePointer = higherPrice.decrypt();
             }
-        }
+         }
         /**
          * @notice draw to buy book the rest
          */
-        if (amountReflect > 0) {
-            _drawToBuyBook(price, amountReflect);
+        if ((amountReflect > 0)) {
+            _drawToBuyBook(price, FHE.asEuint32(amountReflect));
         }
     }
 
@@ -92,143 +104,153 @@ contract Orderbook is IOrderbook, ReentrancyGuard {
      * @notice Place buy order.
      */
     function placeSellOrder (
-        uint256 price,
-        uint256 amountOfTradeToken
+        euint32 price,
+        euint32 amountOfTradeToken
     ) external override nonReentrant {
-        tradeToken.safeTransferFrom(msg.sender, address(this), amountOfTradeToken);
-        emit PlaceSellOrder(msg.sender, price, amountOfTradeToken);
+        tradeToken.transferFromEncrypted(msg.sender, address(this), amountOfTradeToken);
+        // ToDo - throw event
+        //emit PlaceSellOrder(msg.sender, price, amountOfTradeToken);
 
         /**
          * @notice if has order in buy book, and price <= max buy price
          */
-        uint256 buyPricePointer = maxBuyPrice;
-        uint256 amountReflect = amountOfTradeToken;
-        if (maxBuyPrice > 0 && price <= maxBuyPrice) {
-            while (amountReflect > 0 && buyPricePointer >= price && buyPricePointer != 0) {
-                uint8 i = 1;
-                uint256 lowerPrice = buySteps[buyPricePointer].lowerPrice;
-                while (i <= buyOrdersInStepCounter[buyPricePointer] && amountReflect > 0) {
-                    if (amountReflect >= buyOrdersInStep[buyPricePointer][i].amount) {
+        uint32 buyPricePointer = maxBuyPrice;
+        uint32 amountReflect = amountOfTradeToken.decrypt();
+        // ToDo - Check if not a problem to leak data here
+        uint32 priceExposed = price.decrypt();
+        if ((maxBuyPrice > 0) && (priceExposed < maxBuyPrice)) {
+            while ((amountReflect > 0) && (buyPricePointer >= priceExposed) && (buyPricePointer != 0)) {
+                euint32 i = FHE.asEuint32(1);
+                euint32 lowerPrice = buySteps[buyPricePointer].lowerPrice;
+                bool iSmallerThanBuyPrice = FHE.lte(i, buyOrdersInStepCounter[buyPricePointer]).decrypt();
+                while (iSmallerThanBuyPrice && (amountReflect > 0)) {
+                    uint32 decryptedBuyOrderAmount = FHE.decrypt(buyOrdersInStep[buyPricePointer][i.decrypt()].amount);
+                    if ((amountReflect >= decryptedBuyOrderAmount)) {
                         //if the last order has been matched, delete the step
-                        if (i == buyOrdersInStepCounter[buyPricePointer]) {
-                            if (lowerPrice > 0)
-                            buySteps[lowerPrice].higherPrice = 0;
+                        if ((i.decrypt() == buyOrdersInStepCounter[buyPricePointer].decrypt())) {
+                            if ((lowerPrice.decrypt() > 0))
+                            buySteps[lowerPrice.decrypt()].higherPrice = FHE.asEuint32(0);
                             delete buySteps[buyPricePointer];
-                            maxBuyPrice = lowerPrice;
+                            maxBuyPrice = lowerPrice.decrypt();
                         }
 
-                        amountReflect = amountReflect - buyOrdersInStep[buyPricePointer][i].amount;
+                        amountReflect = (amountReflect - buyOrdersInStep[buyPricePointer][i.decrypt()].amount.decrypt());
 
-                        // delete order from storage
-                        delete buyOrdersInStep[buyPricePointer][i];
-                        buyOrdersInStepCounter[buyPricePointer] -= 1;
+                        // // delete order from storage
+                        delete buyOrdersInStep[buyPricePointer][i.decrypt()];
+                        buyOrdersInStepCounter[buyPricePointer] = (buyOrdersInStepCounter[buyPricePointer] - FHE.asEuint32(1));
                     } else {
-                        buySteps[buyPricePointer].amount = buySteps[buyPricePointer].amount - amountReflect;
-                        buyOrdersInStep[buyPricePointer][i].amount = buyOrdersInStep[buyPricePointer][i].amount - amountReflect;
+                        euint32 amountReflectEuint = FHE.asEuint32(amountReflect);
+                        buySteps[buyPricePointer].amount = (buySteps[buyPricePointer].amount - amountReflectEuint);
+                        buyOrdersInStep[buyPricePointer][i.decrypt()].amount = (buyOrdersInStep[buyPricePointer][i.decrypt()].amount - amountReflectEuint);
                         amountReflect = 0;
                     }
-                    i += 1;
+                    i = i + FHE.asEuint32(1);
                 }
-                buyPricePointer = lowerPrice;
+                buyPricePointer = lowerPrice.decrypt();
             }
+         }
+    //     /**
+    //      * @notice draw to buy book the rest
+    //      */
+        if ((amountReflect > 0)) {
+            _drawToSellBook(price, FHE.asEuint32(amountReflect));
         }
-        /**
-         * @notice draw to buy book the rest
-         */
-        if (amountReflect > 0) {
-            _drawToSellBook(price, amountReflect);
-        }
-    }
+     }
 
     /**
      * @notice draw buy order.
      */
     function _drawToBuyBook (
-        uint256 price,
-        uint256 amount
+        euint32 price,
+        euint32 amount
     ) internal {
-        require(price > 0, "Can not place order with price equal 0");
+        FHE.req(FHE.lt(price, FHE.asEuint32(0)));
+        //require(price > 0, "Can not place order with price equal 0");
+        uint32 priceExposed = price.decrypt();
+        buyOrdersInStepCounter[priceExposed] = FHE.add(buyOrdersInStepCounter[priceExposed], FHE.asEuint32(1));
+        buyOrdersInStep[priceExposed][buyOrdersInStepCounter[priceExposed].decrypt()] = Order(msg.sender, amount);
+        buySteps[priceExposed].amount = FHE.add(buySteps[priceExposed].amount, amount);
+        // // ToDo - Event
+        // //emit DrawToBuyBook(msg.sender, price, amount);
 
-        buyOrdersInStepCounter[price] += 1;
-        buyOrdersInStep[price][buyOrdersInStepCounter[price]] = Order(msg.sender, amount);
-        buySteps[price].amount = buySteps[price].amount + amount;
-        emit DrawToBuyBook(msg.sender, price, amount);
-
-        if (maxBuyPrice == 0) {
-            maxBuyPrice = price;
+        if ((maxBuyPrice == 0)) {
+            maxBuyPrice = priceExposed;
             return;
         }
 
-        if (price > maxBuyPrice) {
+        if ((priceExposed > maxBuyPrice)) {
             buySteps[maxBuyPrice].higherPrice = price;
-            buySteps[price].lowerPrice = maxBuyPrice;
-            maxBuyPrice = price;
+            buySteps[priceExposed].lowerPrice = FHE.asEuint32(maxBuyPrice);
+            maxBuyPrice = priceExposed;
             return;
         }
 
-        if (price == maxBuyPrice) {
+        if ((priceExposed == maxBuyPrice)) {
             return;
         }
 
-        uint256 buyPricePointer = maxBuyPrice;
-        while (price <= buyPricePointer) {
-            buyPricePointer = buySteps[buyPricePointer].lowerPrice;
+        uint32 buyPricePointer = maxBuyPrice;
+        while ((priceExposed <= buyPricePointer)) {
+            buyPricePointer = buySteps[buyPricePointer].lowerPrice.decrypt();
         }
 
-        if (price < buySteps[buyPricePointer].higherPrice) {
-            buySteps[price].higherPrice = buySteps[buyPricePointer].higherPrice;
-            buySteps[price].lowerPrice = buyPricePointer;
+        if ((priceExposed < buySteps[buyPricePointer].higherPrice.decrypt())) {
+            buySteps[priceExposed].higherPrice = buySteps[buyPricePointer].higherPrice;
+            buySteps[priceExposed].lowerPrice = FHE.asEuint32(buyPricePointer);
 
-            buySteps[buySteps[buyPricePointer].higherPrice].lowerPrice = price;
+            buySteps[buySteps[buyPricePointer].higherPrice.decrypt()].lowerPrice = price;
             buySteps[buyPricePointer].higherPrice = price;
         }
-    }
+     }
 
     /**
      * @notice draw sell order.
      */
     function _drawToSellBook (
-        uint256 price,
-        uint256 amount
+        euint32 price,
+        euint32 amount
     ) internal {
-        require(price > 0, "Can not place order with price equal 0");
+        
+        FHE.req(FHE.lt(price,FHE.asEuint32(0)));
+        //require(priceExposed > 0, "Can not place order with price equal 0");
+        uint32 priceExposed = price.decrypt();
+        sellOrdersInStepCounter[priceExposed] = FHE.add( sellOrdersInStepCounter[priceExposed] , FHE.asEuint32(1));
+        sellOrdersInStep[priceExposed][sellOrdersInStepCounter[priceExposed].decrypt()] = Order(msg.sender, amount);
+        sellSteps[priceExposed].amount = FHE.add(sellSteps[priceExposed].amount, amount);
+        // // Emit event
 
-        sellOrdersInStepCounter[price] += 1;
-        sellOrdersInStep[price][sellOrdersInStepCounter[price]] = Order(msg.sender, amount);
-        sellSteps[price].amount += amount;
-        emit DrawToSellBook(msg.sender, price, amount);
-
-        if (minSellPrice == 0) {
-            minSellPrice = price;
+        if ((minSellPrice == 0)) {
+            minSellPrice = priceExposed;
             return;
         }
 
-        if (price < minSellPrice) {
+        if ((priceExposed < minSellPrice)) {
             sellSteps[minSellPrice].lowerPrice = price;
-            sellSteps[price].higherPrice = minSellPrice;
-            minSellPrice = price;
+            sellSteps[priceExposed].higherPrice = FHE.asEuint32(minSellPrice);
+            minSellPrice = priceExposed;
             return;
         }
 
-        if (price == minSellPrice) {
+        if ((priceExposed == minSellPrice)) {
             return;
         }
 
-        uint256 sellPricePointer = minSellPrice;
-        while (price >= sellPricePointer && sellSteps[sellPricePointer].higherPrice != 0) {
-            sellPricePointer = sellSteps[sellPricePointer].higherPrice;
+        uint32 sellPricePointer = minSellPrice;
+        while ((priceExposed >= sellPricePointer) && (sellSteps[sellPricePointer].higherPrice.decrypt() !=0)) {
+            sellPricePointer = sellSteps[sellPricePointer].higherPrice.decrypt();
         }
 
-        if (sellPricePointer < price) {
-            sellSteps[price].lowerPrice = sellPricePointer;
+        if ((sellPricePointer < priceExposed)) {
+            sellSteps[priceExposed].lowerPrice = FHE.asEuint32(sellPricePointer);
             sellSteps[sellPricePointer].higherPrice = price;
         }
 
-        if (sellPricePointer > price && price > sellSteps[sellPricePointer].lowerPrice) {
-            sellSteps[price].lowerPrice = sellSteps[sellPricePointer].lowerPrice;
-            sellSteps[price].higherPrice = sellPricePointer;
+        if ((sellPricePointer > priceExposed) && (priceExposed > sellSteps[sellPricePointer].lowerPrice.decrypt())) {
+            sellSteps[priceExposed].lowerPrice = sellSteps[sellPricePointer].lowerPrice;
+            sellSteps[priceExposed].higherPrice = FHE.asEuint32(sellPricePointer);
 
-            sellSteps[sellSteps[sellPricePointer].lowerPrice].higherPrice = price;
+            sellSteps[sellSteps[sellPricePointer].lowerPrice.decrypt()].higherPrice = price;
             sellSteps[sellPricePointer].lowerPrice = price;
         }
     }

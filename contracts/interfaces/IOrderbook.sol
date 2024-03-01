@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.6.8;
+pragma solidity ^0.8.20;
+
+import { FHE, euint32, inEuint32 } from "@fhenixprotocol/contracts/FHE.sol";
 
 /**
  * @title Interface for OrderBook
@@ -7,23 +9,23 @@ pragma solidity >=0.6.8;
 interface IOrderbook {
     struct Order {
         address maker;
-        uint256 amount;
+        euint32 amount;
     }
 
     struct Step {
-        uint256 higherPrice;
-        uint256 lowerPrice;
-        uint256 amount;
+        euint32 higherPrice;
+        euint32 lowerPrice;
+        euint32 amount;
     }
 
     function placeBuyOrder (
-        uint256 price,
-        uint256 amountOfBaseToken
+        euint32 price,
+        euint32 amountOfBaseToken
     ) external;
 
     function placeSellOrder (
-        uint256 price,
-        uint256 amountOfTradeToken
+        euint32 price,
+        euint32 amountOfTradeToken
     ) external;
 
     event PlaceBuyOrder(address sender, uint256 price, uint256 amountOfBaseToken);
