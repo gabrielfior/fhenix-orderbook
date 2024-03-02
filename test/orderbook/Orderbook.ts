@@ -22,8 +22,8 @@ describe('Token', () => {
 
     console.log("Deploying contracts with the account:", deployer.address);
 
-    baseToken = await ethers.deployContract("ERC20PresetMinterPauser", ["token1", "token1"]);
-    tradeToken = await ethers.deployContract("ERC20PresetMinterPauser", ["token2", "token2"]);
+    baseToken = await ethers.deployContract("FHERC20", ["token1", "token1"]);
+    tradeToken = await ethers.deployContract("FHERC20", ["token2", "token2"]);
     orderbook = await ethers.deployContract("Orderbook", [await tradeToken.getAddress(), await baseToken.getAddress()]);
   });
 

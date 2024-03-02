@@ -35,9 +35,8 @@ contract Orderbook is IOrderbook, ReentrancyGuard {
         baseToken = FHERC20(_baseToken);
     }
 
-    /**
-     * @notice Place buy order.
-     */
+    // ToDo - Revise if `if` statements are leaking unwanted information. It's OK to leak that we had a match and the order
+    // was filled, however details of orders that were filled should remain private.
     function placeBuyOrder (
         euint32 price,
         euint32 amountOfBaseToken
@@ -51,12 +50,7 @@ contract Orderbook is IOrderbook, ReentrancyGuard {
          */
         uint32 sellPricePointer = minSellPrice;
         uint32 amountReflect = amountOfBaseToken.decrypt();
-        // ToDo - Check if not a problem to leak data here
         uint32 priceExposed = price.decrypt();
-
-    //     // euin16 first = functionA();
-    //     // euint16 second = functionB();
-    //     // euint16 res = FHE.select(ebool, first, second);
 
         if (minSellPrice > 0 && priceExposed >= minSellPrice) {
             while (amountReflect > 0 && sellPricePointer <= priceExposed && sellPricePointer != 0) {
@@ -92,17 +86,12 @@ contract Orderbook is IOrderbook, ReentrancyGuard {
                 sellPricePointer = higherPrice.decrypt();
             }
          }
-        /**
-         * @notice draw to buy book the rest
-         */
         if ((amountReflect > 0)) {
             _drawToBuyBook(price, FHE.asEuint32(amountReflect));
         }
     }
 
-    /**
-     * @notice Place buy order.
-     */
+    // See doc on placeBuyOrder. Analogous considerations apply.
     function placeSellOrder (
         euint32 price,
         euint32 amountOfTradeToken
@@ -111,12 +100,9 @@ contract Orderbook is IOrderbook, ReentrancyGuard {
         // ToDo - throw event
         //emit PlaceSellOrder(msg.sender, price, amountOfTradeToken);
 
-        /**
-         * @notice if has order in buy book, and price <= max buy price
-         */
+        
         uint32 buyPricePointer = maxBuyPrice;
         uint32 amountReflect = amountOfTradeToken.decrypt();
-        // ToDo - Check if not a problem to leak data here
         uint32 priceExposed = price.decrypt();
         if ((maxBuyPrice > 0) && (priceExposed < maxBuyPrice)) {
             while ((amountReflect > 0) && (buyPricePointer >= priceExposed) && (buyPricePointer != 0)) {
@@ -150,17 +136,11 @@ contract Orderbook is IOrderbook, ReentrancyGuard {
                 buyPricePointer = lowerPrice.decrypt();
             }
          }
-    //     /**
-    //      * @notice draw to buy book the rest
-    //      */
         if ((amountReflect > 0)) {
             _drawToSellBook(price, FHE.asEuint32(amountReflect));
         }
      }
 
-    /**
-     * @notice draw buy order.
-     */
     function _drawToBuyBook (
         euint32 price,
         euint32 amount
@@ -204,16 +184,12 @@ contract Orderbook is IOrderbook, ReentrancyGuard {
         }
      }
 
-    /**
-     * @notice draw sell order.
-     */
     function _drawToSellBook (
         euint32 price,
         euint32 amount
     ) internal {
         
         FHE.req(FHE.lt(price,FHE.asEuint32(0)));
-        //require(priceExposed > 0, "Can not place order with price equal 0");
         uint32 priceExposed = price.decrypt();
         sellOrdersInStepCounter[priceExposed] = FHE.add( sellOrdersInStepCounter[priceExposed] , FHE.asEuint32(1));
         sellOrdersInStep[priceExposed][sellOrdersInStepCounter[priceExposed].decrypt()] = Order(msg.sender, amount);
