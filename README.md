@@ -1,15 +1,37 @@
-# Fhenix Matrix
+# Fhenix Orderbook
 
-Based on:
-https://github.com/sondotpin/orderbook
+#### TODO
+- Remove accounts from hardhat
+- Write script and check if matching is possible
 
-ToDo
-- Write tests (follow ones here -> https://github.com/sondotpin/orderbook/blob/master/tests/OrderBook.test.ts)
-- Implement Fhenix specific logic
-- Implement hardhat-deploy for reproducible deploys
-- Write README, what info is leaked to public, if at all?
+An orderbook implementation on the Fhenix blockchain, leveraging FHE for private balances and trade history. 
 
-## Private Orderbook
+## The problem it solves
 
-This project implements a private orderbook on the Fhenix blockchain leveraging FHE.
-The main difference is that the orders in the orderbook are private.
+Private orderbooks have a few interesting features:
+- Private history of trades (visible only to user that completed trades)
+- Absence of slippage thus impermanent loss
+- Absence of MEV
+
+
+## What was implemented
+
+This project implements a private orderbook on the Fhenix blockchain leveraging FHE. We forked a [publicy available repo](https://github.com/sondotpin/orderbook) and adapted that to use Fhenix's [FHE Solidity library](https://docs.fhenix.zone/).
+The Solidity contract compiles and accepts buy orders and sell orders.
+
+### Contracts
+
+- [FHERC20](./contracts/FHERC20.sol): Encrypted ERC20, allowing for private balances and transfers
+- [Orderbook](./contracts/Orderbook.sol): Private Orderbook, having features described previously.
+
+### Scripts
+- Buy orders
+- Sell orders
+
+## Plans for future implementation
+
+We antecipate the following steps to bring this idea from hackathon project to a proper MVP:
+
+- Sanitize `Orderbook.sol` and confirm that no data leaks are present
+- Clean-up Hardhat usage (add hardhat-deploy for reproducible deployments)
+- Write tests

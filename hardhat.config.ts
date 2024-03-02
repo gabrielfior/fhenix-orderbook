@@ -4,7 +4,7 @@ import "@nomicfoundation/hardhat-toolbox";
 import { config as dotenvConfig } from "dotenv";
 import "fhenix-hardhat-docker";
 import "fhenix-hardhat-plugin";
-import "hardhat-deploy";
+//import "hardhat-deploy";
 import { HardhatUserConfig } from "hardhat/config";
 import { resolve } from "path";
 
@@ -12,30 +12,9 @@ import { resolve } from "path";
 const dotenvConfigPath: string = process.env.DOTENV_CONFIG_PATH || "./.env";
 dotenvConfig({ path: resolve(__dirname, dotenvConfigPath) });
 
-const TESTNET_CHAIN_ID = 42069;
-const TESTNET_RPC_URL = "https://api.testnet.fhenix.zone:7747";
 
-const testnetConfig = {
-  chainId: TESTNET_CHAIN_ID,
-  url: TESTNET_RPC_URL,
-}
-
-
-// Select either private keys or mnemonic from .env file or environment variables
-const keys = process.env.KEY;
-if (!keys) {
-  let mnemonic = process.env.MNEMONIC;
-  if (!mnemonic) {
-    throw new Error("No mnemonic or private key provided, please set MNEMONIC or KEY in your .env file");
-  }
-  testnetConfig['accounts'] = {
-    count: 10,
-    mnemonic,
-    path: "m/44'/60'/0'/0",
-  }
-} else {
-  testnetConfig['accounts'] = [keys];
-}
+//const TESTNET_RPC_URL = "https://api.testnet.fhenix.zone:7747";
+const TESTNET_RPC_URL = "http://localhost:42069";
 
 
 const config: HardhatUserConfig = {
@@ -43,7 +22,16 @@ const config: HardhatUserConfig = {
   // Optional: defaultNetwork is already being set to "localfhenix" by fhenix-hardhat-plugin
   defaultNetwork: "localfhenix",
   networks: {
-    testnet: testnetConfig,
+    localfhenix: {
+      chainId: 412346,
+      url: "http://localhost:42069",
+      accounts: ["0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"]
+    },
+    testnet: {
+      chainId: 42069,
+      url: "https://api.testnet.fhenix.zone:7747",
+      accounts: ["ece6dc6f5020f6fdb05bdae8fc012a7721336bde780ddd423aa41e3a8adb0c89"]
+    },//testnetConfig,
   },
   typechain: {
     outDir: "types",
