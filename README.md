@@ -16,6 +16,8 @@ Private orderbooks have a few interesting features:
 This project implements a private orderbook on the Fhenix blockchain leveraging FHE. We forked a [publicy available repo](https://github.com/sondotpin/orderbook) and adapted that to use Fhenix's [FHE Solidity library](https://docs.fhenix.zone/).
 The Solidity contract compiles and accepts buy orders and sell orders. We also incorporated the encrypted ERC20 template (FHERC20) into the contract.
 
+We also deployed the contract on the Fhenix Frontier testnet (https://explorer.testnet.fhenix.zone/address/0xdE7f141Af8F0ccd82FC78AbF15116356dA98fD05).
+
 ### Contracts
 
 - [FHERC20](./contracts/FHERC20.sol): Encrypted ERC20, allowing for private balances and transfers
