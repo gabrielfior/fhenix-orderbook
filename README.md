@@ -34,3 +34,8 @@ We antecipate the following steps to bring this idea from hackathon project to a
 - Sanitize `Orderbook.sol` and confirm that no data leaks are present
 - Clean-up Hardhat usage (add hardhat-deploy for reproducible deployments)
 - Write tests
+
+
+#####
+- Decrypt makes code "vulnerable" to determinism
+- See while loops from auction example

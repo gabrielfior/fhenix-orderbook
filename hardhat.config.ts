@@ -23,11 +23,11 @@ const config: HardhatUserConfig = {
   // Optional: defaultNetwork is already being set to "localfhenix" by fhenix-hardhat-plugin
   defaultNetwork: "localfhenix",
   networks: {
-    localfhenix: {
-      chainId: 412346,
-      url: "http://localhost:42069",
-      accounts: ["0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"] // hardhat
-    },
+    // localfhenix: {
+    //   chainId: 412346,
+    //   url: "http://localhost:42069",
+    //   accounts: ["0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"] // hardhat
+    // },
     testnet: {
       chainId: 42069,
       url: "https://api.testnet.fhenix.zone:7747",

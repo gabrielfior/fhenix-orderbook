@@ -15,7 +15,9 @@ let tradeTokenAddress: String;
 
 
 async function deployContracts() {
-    // const [deployer] = hre.getSigners();
+    const [deployer] = hre.ethers.getSigners();
+    console.log("Funding deployer");
+    await hre.fhenixjs.getFunds(deployer.address);
     // console.log("Deploying contracts with the account:", deployer.address);
     // const account = deployer.connect(ethers.getDefaultProvider());
 
@@ -23,14 +25,14 @@ async function deployContracts() {
     const token1 = await ethers.deployContract("FHERC20", ["token1", "token1"]);
     console.log("deployed token 1", await token1.getAddress());
     const token2 = await ethers.deployContract("FHERC20", ["token2", "token2"]);
-    const orderbook = await ethers.deployContract("Orderbook", [await token1.getAddress(), await token2.getAddress()]) as Orderbook;
+    //const orderbook = await ethers.deployContract("Orderbook", [await token1.getAddress(), await token2.getAddress()]) as Orderbook;
 
-    orderbookAddress = await orderbook.getAddress();
-    console.log("orderbook", orderbookAddress);
-    baseTokenAddress = await orderbook.baseToken();
-    console.log("baseToken", baseTokenAddress);
-    tradeTokenAddress = await orderbook.tradeToken();
-    console.log("tradeToken", tradeTokenAddress);
+    // orderbookAddress = await orderbook.getAddress();
+    // console.log("orderbook", orderbookAddress);
+    // baseTokenAddress = await orderbook.baseToken();
+    // console.log("baseToken", baseTokenAddress);
+    // tradeTokenAddress = await orderbook.tradeToken();
+    // console.log("tradeToken", tradeTokenAddress);
 }
 
 async function getBuyOrdersAndSteps(orderbook: Orderbook, price: BigNumberish) {
@@ -49,11 +51,15 @@ async function getSellOrdersAndSteps(orderbook: Orderbook, price: BigNumberish) 
 
 async function main() {
 
+
+
     await deployContracts();
 
     const orderbook = await hre.ethers.getContractAt("Orderbook", orderbookAddress) as Orderbook;
     console.log("myContract ", await orderbook.tradeToken(), await orderbook.maxBuyPrice());
 
+    // Todo - This provider only views
+    // ToDo - When using signature, get Metamask provider (when signing)
     const provider = new hre.ethers.JsonRpcProvider('https://test01.fhenix.zone/evm');
     console.log('after provider');
     const client = new FhenixClient({ provider });
@@ -67,7 +73,7 @@ async function main() {
     const price1 = 10;
     const price2 = 20;
     const amount = 10;
-    //const encryptedPrice = await client.encrypt_uint32(price);
+    const encryptedPrice = await client.encrypt_uint32(123);
     //const encryptedAmount = await client.encrypt_uint32(price);
     await orderbook.placeBuyOrder(price1, amount);
     await orderbook.placeBuyOrder(price2, amount);

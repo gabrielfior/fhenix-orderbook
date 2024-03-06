@@ -18,15 +18,15 @@ interface IOrderbook {
         euint32 amount;
     }
 
-    function placeBuyOrder (
-        euint32 price,
-        euint32 amountOfBaseToken
-    ) external;
+    // function placeBuyOrder (
+    //     inEuint32 calldata price,
+    //     inEuint32 calldata amountOfBaseToken
+    // ) external;
 
-    function placeSellOrder (
-        euint32 price,
-        euint32 amountOfTradeToken
-    ) external;
+    // function placeSellOrder (
+    //     inEuint32 calldata price,
+    //     inEuint32 calldata amountOfTradeToken
+    // ) external;
 
     event PlaceBuyOrder(address sender, uint256 price, uint256 amountOfBaseToken);
     event PlaceSellOrder(address sender, uint256 price, uint256 amountOfTradeToken);
